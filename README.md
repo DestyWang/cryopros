@@ -143,7 +143,7 @@ The CTF parameters for each particle are in the metadata file `T00_HA_130K-Equal
 ### Step 2: Ab-initio auto-refinement
 
 Perform ab-initio auto-refinement:
-- Import the downloaded data into relion and execute the **3D initial model** task.
+- Import the downloaded data into relion and execute the **3D initial model** task. You can also execute the ab-initio task in cryosparc as an alternative.
 - Import the raw data and initial volume obtained by relion into CryoSPARC and perform the **Non-uniform Refinement** task on raw particles with C3 symmetry.
 
 The expected outcome of the process described above is a density map accompanied by a pose metafile:
@@ -164,8 +164,9 @@ The expected result, `autorefinement.star`, which includes the estimated pose pa
 - Fit this atomic model it into [the density map gained via previous auto-refinement, i.e., cryosparc_P68_J379_005_volume_map_sharp.mrc](https://drive.google.com/drive/folders/1VpVpBujJ0qlPEtWYzgfbkNF39oTVeIro?usp=sharing) in Chimera, then run the following commands in the Chimera command line:
 ```
 molmap #1 2.62 onGrid #0
-save #1 6idd_align.mrc
+save #2 6idd_align.mrc
 ```
+- If you are using ChimeraX, the id of the input starts from 1.
 <p align="center">
 <img src="./images/ha_trimer/model_fit.png" width="200px">
 </p>
@@ -181,7 +182,7 @@ The expected result, `6idd_align_lp10.mrc`, can be downloaded from [this link](h
 The particles `T00_HA_130K-Equalized-Particle-Stack.mrcs` and their refined poses, available at [`autorefinement.star`](https://drive.google.com/drive/folders/1VpVpBujJ0qlPEtWYzgfbkNF39oTVeIro?usp=sharing), are utilized to train the neural network within the generative module. This training starts with the initial latent volume, which can be accessed at [`6idd_align_lp10.mrc`](https://drive.google.com/drive/folders/1iORgW1831wCsg4wliRPq0pasIo2F-Ymo?usp=sharing), via command:
 ```
 cryopros-train \
---opt {CONDA_ENV_PATH}/lib/python3.12/site-packages/cryoPROS/options/train.json \
+--opt {CONDA_ENV_PATH}/lib/python{VERSION}/site-packages/cryoPROS/options/train.json \
 --gpu_ids 0 1 2 3 \
 --task_name HAtrimer_iteration_1 \
 --box_size 256 \
@@ -194,7 +195,9 @@ cryopros-train \
 --dataloader_batch_size 8
 ```
 `{CONDA_ENV_PATH}` is the location of the `CRYOPROS_ENV`, the Conda environment created during the installation process. If [Anaconda 3](https://www.anaconda.com) is used to create the Conda environment, then `{CONDA_ENV_PATH}` should be set to `{ANACONDA_INSTALLATION_PATH}/envs/CRYOPROS_ENV`.
+Also, `{VERSION}` is the version you installed at the beginning.
 Moreover, 4 GPUs are utilized for training in the aforementioned setting. Adjust the `--gpu_ids` option to accommodate your computing environment.
+Finally, other parameters as init_volume_path, data_path should be set properly.
 
 Upon completion of the above command:
 - A directory named `./generate/HAtrimer_iteration_1` will be created.
@@ -258,6 +261,7 @@ Finally, Use Relion to generate the subset stack (`raw_iter_2.mrcs`) by this com
 ```
 relion_stack_create --i 2581.star --o raw_iter2
 ```
+Note that the 2581.star should be placed in the proper path corresponding to the mrc file.
 
 ### Step 8: Iteration 2: Train the neural network in the generative module
 
@@ -271,7 +275,7 @@ cryopros-train \
 --box_size 256 \
 --Apix 1.31 \
 --volume_scale 50 \
---cryosparc_P68_J2581_volume_map_sharp.mrc \
+--init_volume_path cryosparc_P68_J2581_volume_map_sharp.mrc \
 --data_path raw_iter_2.mrcs \
 --param_path 2581.star \
 --invert \
@@ -307,6 +311,12 @@ Generated auxiliary particles are output in `./generated_HAtrimer_iteration_2/HA
 To update the particle root in the starfile for the generated particles from `unipose.star`, use the following command in vim:
 
 ![rename_iter2](./images/ha_trimer/rename_iter2.png "rename_iter2")
+If you are using the updated unipose.star in step 5, you should replace the command with:
+```
+:%s/HAtrimer_iteration_1_generated_particles.mrcs/HAtrimer_iteration_2_generated_particles.mrcs
+```
+Note that the replaced string should be identical to the data path in unipose.star.
+
 
 ### Step 10: Iteration 2: Co-refinement using a combination of raw particles and synthesized auxiliary particles
 
